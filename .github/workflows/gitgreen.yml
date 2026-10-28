@@ -1,0 +1,36 @@
+name: GitGreen - Four Daily Commits
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *'
+      timezone: 'Asia/Ho_Chi_Minh'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gitgreen-autocommit
+  cancel-in-progress: false
+
+jobs:
+  record-activity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update daily activity and commit
+        env:
+          TZ: Asia/Ho_Chi_Minh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'tranthaigin'
+          git config user.email '242965146+tranthaigin@users.noreply.github.com'
+          timestamp="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+          printf '%s | Automated activity\n' "$timestamp" >> DAILY_ACTIVITY.md
+          git add DAILY_ACTIVITY.md
+          git commit -m "chore: activity at $timestamp"
+          git push origin HEAD:main
