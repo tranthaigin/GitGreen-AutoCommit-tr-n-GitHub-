@@ -1,10 +1,19 @@
-name: GitGreen - Four Daily Commits
+name: GitGreen - 50 Daily Commits
 
 on:
   schedule:
-    - cron: '0 0,6,12,18 * * *'
+    # 13 commits at 00:00 and 12:00 (Vietnam time)
+    - cron: '0 0,12 * * *'
+      timezone: 'Asia/Ho_Chi_Minh'
+    # 12 commits at 06:00 and 18:00 (Vietnam time)
+    - cron: '0 6,18 * * *'
       timezone: 'Asia/Ho_Chi_Minh'
   workflow_dispatch:
+    inputs:
+      commits:
+        description: 'Number of commits for a manual test (1-50)'
+        required: true
+        default: '1'
 
 permissions:
   contents: write
@@ -21,16 +30,38 @@ jobs:
         with:
           ref: main
 
-      - name: Update daily activity and commit
+      - name: Create activity commits
         env:
           TZ: Asia/Ho_Chi_Minh
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MANUAL_COUNT: ${{ inputs.commits }}
         shell: bash
         run: |
           set -euo pipefail
+
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            count="$MANUAL_COUNT"
+          elif [[ "$SCHEDULE" == '0 0,12 * * *' ]]; then
+            count=13
+          else
+            count=12
+          fi
+
+          if ! [[ "$count" =~ ^[0-9]+$ ]] || (( count < 1 || count > 50 )); then
+            echo 'Invalid commit count; expected integer from 1 to 50.' >&2
+            exit 1
+          fi
+
           git config user.name 'tranthaigin'
           git config user.email '242965146+tranthaigin@users.noreply.github.com'
-          timestamp="$(date '+%Y-%m-%d %H:%M:%S %Z')"
-          printf '%s | Automated activity\n' "$timestamp" >> DAILY_ACTIVITY.md
-          git add DAILY_ACTIVITY.md
-          git commit -m "chore: activity at $timestamp"
+
+          for ((i=1; i<=count; i++)); do
+            timestamp="$(date '+%Y-%m-%d %H:%M:%S %z')"
+            printf '%s | GitGreen run %s | update %02d/%02d\n' \
+              "$timestamp" "$GITHUB_RUN_ID" "$i" "$count" >> DAILY_ACTIVITY.md
+            git add DAILY_ACTIVITY.md
+            git commit -m "chore: GitGreen activity $i/$count ($GITHUB_RUN_ID)"
+          done
+
           git push origin HEAD:main
