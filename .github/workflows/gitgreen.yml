@@ -42,7 +42,7 @@ jobs:
 
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
             count="$MANUAL_COUNT"
-          elif [[ "$SCHEDULE" == '0 0,12 * * *' ]]; then
+          elif [[ "$SCHEDULE" == '17 0,12 * * *' ]]; then
             count=13
           else
             count=12
