@@ -1,13 +1,16 @@
+
 name: GitGreen - 50 Daily Commits
 
 on:
   schedule:
-    # 13 commits at 00:00 and 12:00 (Vietnam time)
-    - cron: '0 0,12 * * *'
+    # 13 commits at 00:17 and 12:17 (Vietnam time)
+    - cron: '17 0,12 * * *'
       timezone: 'Asia/Ho_Chi_Minh'
-    # 12 commits at 06:00 and 18:00 (Vietnam time)
-    - cron: '0 6,18 * * *'
+
+    # 12 commits at 06:17 and 18:17 (Vietnam time)
+    - cron: '17 6,18 * * *'
       timezone: 'Asia/Ho_Chi_Minh'
+
   workflow_dispatch:
     inputs:
       commits:
@@ -25,8 +28,10 @@ concurrency:
 jobs:
   record-activity:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v5
         with:
           ref: main
 
@@ -36,6 +41,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           MANUAL_COUNT: ${{ inputs.commits }}
+
         shell: bash
         run: |
           set -euo pipefail
@@ -58,8 +64,10 @@ jobs:
 
           for ((i=1; i<=count; i++)); do
             timestamp="$(date '+%Y-%m-%d %H:%M:%S %z')"
+
             printf '%s | GitGreen run %s | update %02d/%02d\n' \
               "$timestamp" "$GITHUB_RUN_ID" "$i" "$count" >> DAILY_ACTIVITY.md
+
             git add DAILY_ACTIVITY.md
             git commit -m "chore: GitGreen activity $i/$count ($GITHUB_RUN_ID)"
           done
