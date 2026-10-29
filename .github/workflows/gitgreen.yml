@@ -1,20 +1,16 @@
-
-name: GitGreen - 50 Daily Commits
+name: GitGreen - Hourly 5-6 Commits
 
 on:
   schedule:
-    # 13 commits at 00:17 and 12:17 (Vietnam time)
-    - cron: '17 0,12 * * *'
-      timezone: 'Asia/Ho_Chi_Minh'
-
-    # 12 commits at 06:17 and 18:17 (Vietnam time)
-    - cron: '17 6,18 * * *'
-      timezone: 'Asia/Ho_Chi_Minh'
+    # Vietnam even hours (UTC odd hours): 6 commits
+    - cron: '23 1-23/2 * * *'
+    # Vietnam odd hours (UTC even hours): 5 commits
+    - cron: '23 0-22/2 * * *'
 
   workflow_dispatch:
     inputs:
       commits:
-        description: 'Number of commits for a manual test (1-50)'
+        description: 'Number of commits for manual testing (1-50)'
         required: true
         default: '1'
 
@@ -28,7 +24,6 @@ concurrency:
 jobs:
   record-activity:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -41,22 +36,30 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           MANUAL_COUNT: ${{ inputs.commits }}
-
         shell: bash
         run: |
           set -euo pipefail
 
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
             count="$MANUAL_COUNT"
-          elif [[ "$SCHEDULE" == '17 0,12 * * *' ]]; then
-            count=13
+          elif [[ "$SCHEDULE" == '23 1-23/2 * * *' ]]; then
+            count=6
+          elif [[ "$SCHEDULE" == '23 0-22/2 * * *' ]]; then
+            count=5
           else
-            count=12
+            echo 'Unexpected trigger schedule' >&2
+            exit 1
           fi
 
           if ! [[ "$count" =~ ^[0-9]+$ ]] || (( count < 1 || count > 50 )); then
-            echo 'Invalid commit count; expected integer from 1 to 50.' >&2
+            echo 'Commit count must be between 1 and 50.' >&2
             exit 1
+          fi
+
+          # A re-run of the same GitHub Actions run must not create duplicates.
+          if [[ -f DAILY_ACTIVITY.md ]] && grep -Fq "| GitGreen run $GITHUB_RUN_ID |" DAILY_ACTIVITY.md; then
+            echo "GitHub run $GITHUB_RUN_ID already recorded; skip."
+            exit 0
           fi
 
           git config user.name 'tranthaigin'
@@ -64,10 +67,8 @@ jobs:
 
           for ((i=1; i<=count; i++)); do
             timestamp="$(date '+%Y-%m-%d %H:%M:%S %z')"
-
             printf '%s | GitGreen run %s | update %02d/%02d\n' \
               "$timestamp" "$GITHUB_RUN_ID" "$i" "$count" >> DAILY_ACTIVITY.md
-
             git add DAILY_ACTIVITY.md
             git commit -m "chore: GitGreen activity $i/$count ($GITHUB_RUN_ID)"
           done
